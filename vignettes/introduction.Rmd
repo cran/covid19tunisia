@@ -1,0 +1,119 @@
+---
+title: "Introduction to the covid19tunisia package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to the covid19tunisia package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+The covid19tunisia R package provides a tidy format dataset of the 2019 Novel Coronavirus COVID-19 (2019-nCoV) pandemic outbreak in Tunisia. The package 
+covers a daily summary of the outbreak on the national level.
+
+The data was pull from :
+
+- [Official Facebook page of the Tunisian Ministry of Health](https://tinyurl.com/y7uvomew) through their daily published press releases.
+
+- [National Observatory of New and Emerging Diseases](http://www.onmne.tn/fr/publications.php?id_rub=5&id=123)
+
+- Regional governments in Tunisia.
+
+## Installation
+
+You can install the released version of covid19tunisia from [CRAN](https://cran.r-project.org/package=covid19tunisia) with:
+
+``` r
+install.packages("covid19tunisia")
+```
+
+## Overview
+
+The `covid19tunisia` dataset provides an overall summary of the cases in Tunisia since the beginning of the covid19 outbreak on 
+March 2, 2020. The dataset contains the following fields:
+
+▲ `date` - The date in YYYY-MM-DD form.
+
+▲ `location` - The name of the government as provided by the data sources.
+
+▲ `location_type` - The type of location using the covid19R controlled vocabulary. In this case, it's “state”.
+
+▲ `location_code` - A standardized location code using a national or international standard. In this case, . See https://www.iso.org/obp/ui/#iso:code:3166:TN for details.
+
+▲ `location_code_type` The type of standardized location code being used according to the covid19R controlled vocabulary. Here we use “ISO 3166-2”.
+
+▲ `data_type` - the type of data in that given row. Includes cases new : new confirmed Covid-19 cases during on the current date,
+recovered_new : new number of patients recovered on the current date and deaths_new : new deaths on the current date.
+
+▲ `value` - number of cases of each data type.
+
+```{r}
+library(covid19tunisia)
+
+data <- refresh_covid19tunisia()
+
+head(data)
+
+str(data)
+
+```
+
+### Plotting the daily evolution of active cases
+
+``` r
+# Transform the data
+
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+data_transformed <- data %>% group_by(date,data_type) %>% summarise(value=sum(value)) %>% 
+                    spread(data_type,value)
+
+head(data_transformed)
+# A tibble: 6 x 4
+# Groups:   date [6]
+  date       cases_new deaths_new recovered_new
+  <date>         <dbl>      <dbl>         <dbl>
+1 2020-03-02         1          0             0
+2 2020-03-08         1          0             0
+3 2020-03-09         3          0             0
+4 2020-03-10         1          0             0
+5 2020-03-11         1          0             0
+6 2020-03-12         6          0             0
+
+  data_transformed %>%
+  ungroup() %>% plot_ly(type = 'scatter', 
+                        mode = 'lines+markers')%>% 
+  add_trace(x = ~date, y = ~cumsum(cases_new), 
+            name = 'Confirmed cases',
+            marker = list(color = '#fec44f'),
+            line = list(color = '#fec44f'),
+            hoverinfo = "text",
+            text = ~paste(cases_new, "New confirmed cases\n",cumsum(cases_new), 'Total number of infected cases on', date)) %>%
+  add_trace(x = ~date, y = ~cumsum(deaths_new),
+            name = 'Deaths',
+            marker = list(color = 'red'),
+            line = list(color = 'red'),
+            hoverinfo = "text",
+            text = ~paste(deaths_new, "New deaths\n",cumsum(deaths_new), 'Total number of deaths on', date)) %>%
+  add_trace(x = ~date, y = ~cumsum(recovered_new), 
+            name = 'Recovered cases',
+            marker = list(color = 'green'),
+            line = list(color = 'green'),
+            hoverinfo = "text",
+            text = ~paste(recovered_new, "New recovered cases\n",cumsum(recovered_new), 'Total number of recovered cases on', date)) %>% 
+  layout(title = 'Tunisia - Daily Evolution of Active COVID19 Cases',
+         legend = list(x = 0.1, y = 0.9,
+                       font = list(family = "sans-serif", size = 14, color = "#000"), bgcolor = "",
+                       bordercolor = "#FFFFFF", borderwidth = 2),
+         xaxis = list(title = ""),
+         yaxis = list(side = 'left', title = 'Daily evolution', showgrid = TRUE, zeroline = TRUE))
+                        
+```
